@@ -31,6 +31,7 @@ internal sealed class MainForm : Form
     readonly Button _retryButton = new();
     readonly Button _browserButton = new();
     readonly Button _folderButton = new();
+    readonly Button _aboutButton = new();
     readonly Button _quitButton = new();
     readonly System.Windows.Forms.Timer _dotsTimer = new() { Interval = 400 };
 
@@ -43,6 +44,7 @@ internal sealed class MainForm : Form
     readonly Button _copyFixButton = new();
     readonly Button _downloadButton = new();
     readonly Button _envFolderButton = new();
+    readonly Button _envAboutButton = new();
     readonly Button _envQuitButton = new();
 
     DshServer? _server;
@@ -215,10 +217,12 @@ internal sealed class MainForm : Form
         StyledButton(_retryButton, "重试");
         StyledButton(_browserButton, "在浏览器中打开");
         StyledButton(_folderButton, "打开配置文件夹");
+        StyledButton(_aboutButton, "关于");
         StyledButton(_quitButton, "退出");
         _retryButton.Click += OnRetryClick;
         _browserButton.Click += (_, _) => { if (_server is not null) OpenExternal(_server.BaseUrl.ToString()); };
         _folderButton.Click += (_, _) => OpenFolder(AppConfig.DataDirectory);
+        _aboutButton.Click += (_, _) => ShowAbout();
         _quitButton.Click += (_, _) => Close();
 
         var buttons = new FlowLayoutPanel
@@ -234,6 +238,7 @@ internal sealed class MainForm : Form
         buttons.Controls.Add(_retryButton);
         buttons.Controls.Add(_browserButton);
         buttons.Controls.Add(_folderButton);
+        buttons.Controls.Add(_aboutButton);
         buttons.Controls.Add(_quitButton);
 
         var body = new TableLayoutPanel
@@ -300,6 +305,7 @@ internal sealed class MainForm : Form
         StyledButton(_copyFixButton, "复制安装命令");
         StyledButton(_downloadButton, "打开下载页");
         StyledButton(_envFolderButton, "打开配置文件夹");
+        StyledButton(_envAboutButton, "关于");
         StyledButton(_envQuitButton, "退出");
         _recheckButton.Click += OnRecheckClick;
         _copyFixButton.Click += OnCopyFixesClick;
@@ -310,6 +316,7 @@ internal sealed class MainForm : Form
                 OpenExternal(url);
         };
         _envFolderButton.Click += (_, _) => OpenFolder(AppConfig.DataDirectory);
+        _envAboutButton.Click += (_, _) => ShowAbout();
         _envQuitButton.Click += (_, _) => Close();
 
         var buttons = new FlowLayoutPanel
@@ -326,6 +333,7 @@ internal sealed class MainForm : Form
         buttons.Controls.Add(_copyFixButton);
         buttons.Controls.Add(_downloadButton);
         buttons.Controls.Add(_envFolderButton);
+        buttons.Controls.Add(_envAboutButton);
         buttons.Controls.Add(_envQuitButton);
 
         var body = new TableLayoutPanel
@@ -582,6 +590,7 @@ internal sealed class MainForm : Form
         core.NavigationStarting += OnNavigationStarting;
         core.NavigationCompleted += OnNavigationCompleted;
         core.ProcessFailed += OnProcessFailed;
+        core.ContextMenuRequested += OnContextMenuRequested;
 
         _webViewReady = true;
     }
@@ -725,6 +734,91 @@ internal sealed class MainForm : Form
         {
             // Ignore: the job object still guarantees cleanup.
         }
+    }
+
+    void OnContextMenuRequested(object? sender, CoreWebView2ContextMenuRequestedEventArgs e)
+    {
+        try
+        {
+            var item = _webView.CoreWebView2.Environment.CreateContextMenuItem(
+                "关于 DeepSeek Harness", null, CoreWebView2ContextMenuItemKind.Command);
+            item.CustomItemSelected += (_, _) => BeginInvoke(new Action(ShowAbout));
+            e.MenuItems.Add(item);
+        }
+        catch
+        {
+            // Customising the page context menu is a nicety; never let it break the page.
+        }
+    }
+
+    void ShowAbout()
+    {
+        if (_closing)
+            return;
+        try
+        {
+            using var dialog = new AboutForm(_toolchain);
+            dialog.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "关于", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    // ── about entry points ──────────────────────────────────────────────────────────────────
+    // The window has no menu bar, so About is reachable from the title-bar system menu
+    // (right-click the title bar or Alt+Space), F1, the right-click menu of the page, and the
+    // buttons on the start-up panels.
+
+    const int AboutCommandId = 0x1000;   // app-defined command ids must exceed 0x000F
+    const int WmSysCommand = 0x0112;
+    const uint MfString = 0x0000;
+    const uint MfSeparator = 0x0800;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    static extern bool AppendMenu(IntPtr hMenu, uint uFlags, IntPtr uIdNewItem, string? lpNewItem);
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        try
+        {
+            var menu = GetSystemMenu(Handle, false);
+            if (menu != IntPtr.Zero)
+            {
+                AppendMenu(menu, MfSeparator, IntPtr.Zero, null);
+                AppendMenu(menu, MfString, new IntPtr(AboutCommandId), "关于(&A)…");
+            }
+        }
+        catch
+        {
+            // Not fatal: the other About entry points still work.
+        }
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        // The low four bits of a system command are reserved by the system, hence the mask.
+        if (m.Msg == WmSysCommand && (m.WParam.ToInt32() & 0xFFF0) == AboutCommandId)
+        {
+            ShowAbout();
+            return;
+        }
+        base.WndProc(ref m);
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.F1)
+        {
+            ShowAbout();
+            return true;
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     static void OpenExternal(string url)

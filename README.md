@@ -96,6 +96,7 @@ dotnet publish -c Release -r win-x64 --self-contained false `
 ```powershell
 DshDesktop.exe --check-env              # 不开窗口，打印体检报告；就绪退出码 0，缺组件 1
 DshDesktop.exe --check-env --path-only  # 只按 PATH 查，不查常见安装位置
+DshDesktop.exe --about                  # 不开窗口，打印版本/环境信息（提 issue 时可直接贴）
 DshDesktop.exe --path-only              # 正常开窗口，但环境检测只按 PATH 查
 ```
 
@@ -109,7 +110,22 @@ cmd /c "set PATH=C:\Windows\System32 && publish\DshDesktop.exe --path-only"
 
 - `F5` / `Ctrl+R` 重新加载界面，`Ctrl+Shift+I` / `F12` 打开 DevTools
 - `Ctrl` + `+` / `-` / `0` 缩放
-- 关闭窗口即结束它自己拉起的 `dsh` 服务；启动失败时窗口会给出错误、日志尾部和「重试 / 在浏览器中打开 / 打开配置文件夹」
+- 关闭窗口即结束它自己拉起的 `dsh` 服务；启动失败时窗口会给出错误、日志尾部和「重试 / 在浏览器中打开 / 打开配置文件夹 / 关于 / 退出」
+
+### 关于
+
+窗口是**无边框、无菜单栏**的，所以「关于」放在几个顺手的位置：
+
+| 入口 | 说明 |
+| --- | --- |
+| 右键标题栏 → `关于(&A)…`，或 `Alt+空格` → A | 原生系统菜单，最可靠；追加在「关闭」之后 |
+| 页面内右键 → 关于 DeepSeek Harness | 挂在 WebView2 右键菜单上，界面聚焦时最顺手 |
+| `F1` | 窗口控件持有焦点时生效（启动中、环境检测页、错误页） |
+| 错误页 / 环境检测页的「关于」按钮 | 出问题时不用记快捷键 |
+
+「关于」窗口显示：应用名与版本（版本号后带构建时自动写入的 commit 短哈希）、dsh / Node.js /
+WebView2 运行时版本、许可证、可点击的项目主页链接，以及配置目录和实际用到的可执行文件路径。
+底部信息块可全选复制，也可点「复制信息」——**提 issue 时贴这一段最省事**。
 
 ## 已验证行为
 
@@ -120,7 +136,16 @@ cmd /c "set PATH=C:\Windows\System32 && publish\DshDesktop.exe --path-only"
 | `smoke-test.ps1` | 拉起 `web --no-open --port 0` → 系统分配端口 → HTTP 200 且含 DSH 标记 → CDP 确认 WebView2 真的渲染了页面 → 强杀窗口后 `node` 子进程一并退出、无孤儿 |
 | `smoke-test-attach.ps1` | 复用 3080 上已有的实例、不另起服务进程、优雅关窗不误杀外部服务 |
 | `smoke-test-missing-env.ps1` | 缺组件时：写出失败报告、**不拉起 node**、**不初始化 WebView2**（数据目录不创建）、不新增 `msedgewebview2` 进程、窗口不崩 |
+| `smoke-test-about.ps1` | 用真实 Win32 消息验证：系统菜单确实追加了「关于」→ 发 `WM_SYSCOMMAND(0x1000)` 真的弹出关于窗口 → 关掉后主窗口仍存活 |
 | `portability-test.ps1` | 把 node + dsh 树拷到临时目录，用剥离的 PATH 启动，验证这套组合可以脱离全局 npm 安装自举 |
+
+## 许可证
+
+本项目以 **MIT** 许可发布，见 [LICENSE](LICENSE)。
+
+需要留意：应用图标取自 **DeepSeek 官方 logo**（`tools\icon-source.svg`），商标归 DeepSeek 所有，
+MIT 许可并不涵盖商标授权。自用无妨，若要用于商业场景或长期公开分发，建议换成自己的图标——
+替换 `tools\icon-source.svg` 后重跑 `tools\make-icon.ps1` 即可。
 
 ## 已知限制
 

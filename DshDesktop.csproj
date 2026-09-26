@@ -14,7 +14,8 @@
     <AssemblyTitle>DeepSeek Harness</AssemblyTitle>
     <Product>DeepSeek Harness Desktop</Product>
     <Description>Native WebView2 window for the DeepSeek Harness web UI</Description>
-    <Company>local</Company>
+    <Company>BigBearKing</Company>
+    <Copyright>Copyright (c) 2026 BigBearKing · MIT License</Copyright>
     <Version>1.0.0</Version>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>

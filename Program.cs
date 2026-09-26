@@ -15,6 +15,12 @@ internal static class Program
         if (HasFlag(args, "--check-env"))
             return RunEnvironmentCheck();
 
+        if (HasFlag(args, "--about"))
+        {
+            PrintAbout();
+            return 0;
+        }
+
         using var mutex = new Mutex(initiallyOwned: true, name: @"Local\DeepSeekHarness.Desktop", createdNew: out var isFirstInstance);
         if (!isFirstInstance)
         {
@@ -64,5 +70,25 @@ internal static class Program
         Console.WriteLine(report.ToPlainText());
         Console.WriteLine($"报告已写入: {reportPath}");
         return report.Ok ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Headless About: <c>DshDesktop.exe --about</c> prints the same block the About window shows,
+    /// so a bug report can be produced without opening the UI.
+    /// </summary>
+    static void PrintAbout()
+    {
+        var toolchain = ToolLocator.Probe(AppConfig.Load());
+
+        try
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+        }
+        catch
+        {
+            // No console attached; nothing else to do.
+        }
+
+        Console.WriteLine(AboutInfo.ToPlainText(toolchain));
     }
 }

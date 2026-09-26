@@ -6,6 +6,24 @@
 底层是 **C# WinForms + WebView2**（复用系统已安装的 Edge WebView2 运行时），
 所以产物只有一个约 1.4 MB 的 exe，而不是塞进一整个 Chromium。
 
+## 下载
+
+到 [Releases](https://github.com/BigBearKing/dsh-desktop/releases) 下载 `DshDesktop.exe`，
+双击即用，无需安装。程序启动时**先自检运行环境**，缺什么会直接给出安装命令，不会留下一堆看不懂的报错。
+
+## 系统要求
+
+| 要求 | 说明 |
+| --- | --- |
+| Windows 10 / 11（x64） | — |
+| [Node.js](https://nodejs.org/) 18 或更高 | `dsh` 的运行依赖；`winget install OpenJS.NodeJS.LTS` |
+| dsh CLI | `npm i -g @deepseek-ai/dsh` |
+| WebView2 运行时 | Windows 11 已内置；Win10 缺失时程序会提示安装 |
+| .NET 10 桌面运行时 | 缺失时程序无法启动，请安装运行时或改用自包含构建 |
+
+Node.js、dsh、WebView2 这三项都会被启动检测覆盖，不用自己逐个排查；
+检测结果同时写入 `%LOCALAPPDATA%\DeepSeekHarness\env-check.txt`。
+
 ## 它是怎么工作的
 
 ```
@@ -28,23 +46,6 @@ DshDesktop.exe (WinForms 窗口)
 - **外链外跳**：`target=_blank` 或任何跳出本机回环地址的导航，都交给系统默认浏览器打开。
 - 子进程 stdout/stderr 全程异步抽干（保留尾部 500 行），既避免管道塞满把 node 卡死，
   也在启动失败时把日志显示在错误页上（可复制）。
-
-## 构建与运行
-
-```powershell
-cd <本项目目录>
-
-# 调试构建 + 跑起来
-dotnet build -c Release
-.\bin\Release\net10.0-windows\DshDesktop.exe
-
-# 发布单文件 exe（当前所用）
-dotnet publish -c Release -r win-x64 --self-contained false `
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:DebugType=none -p:AllowedReferenceRelatedFileExtensions=none -o publish
-```
-
-产物：`publish\DshDesktop.exe`（约 1.41 MB，框架依赖）。
 
 ## 配置
 
@@ -72,7 +73,7 @@ dotnet publish -c Release -r win-x64 --self-contained false `
   ✗  dsh 命令行       未找到 @deepseek-ai/dsh 的 bin.js
                          修复: npm i -g @deepseek-ai/dsh
   !  npm              未找到 npm.cmd（安装 Node.js 时会自带）
-       [重新检测] [复制安装命令] [打开下载页] [打开配置文件夹] [退出]
+       [重新检测] [复制安装命令] [打开下载页] [打开配置文件夹] [关于] [退出]
 ```
 
 判定规则：
@@ -103,7 +104,7 @@ DshDesktop.exe --path-only              # 正常开窗口，但环境检测只�
 演示缺组件界面（在一台已装好 Node 的机器上复现"干净电脑"）：把 PATH 剥空再配合 `--path-only`：
 
 ```powershell
-cmd /c "set PATH=C:\Windows\System32 && publish\DshDesktop.exe --path-only"
+cmd /c "set PATH=C:\Windows\System32 && DshDesktop.exe --path-only"
 ```
 
 ## 窗口内的操作
@@ -129,7 +130,7 @@ WebView2 运行时版本、许可证、可点击的项目主页链接，以及�
 
 ## 已验证行为
 
-`tools\` 下的实测脚本（都是本机真实运行，不是推断）：
+`tools\` 下的实测脚本（都是真实运行，不是推断）：
 
 | 脚本 | 覆盖内容 |
 | --- | --- |
@@ -137,7 +138,20 @@ WebView2 运行时版本、许可证、可点击的项目主页链接，以及�
 | `smoke-test-attach.ps1` | 复用 3080 上已有的实例、不另起服务进程、优雅关窗不误杀外部服务 |
 | `smoke-test-missing-env.ps1` | 缺组件时：写出失败报告、**不拉起 node**、**不初始化 WebView2**（数据目录不创建）、不新增 `msedgewebview2` 进程、窗口不崩 |
 | `smoke-test-about.ps1` | 用真实 Win32 消息验证：系统菜单确实追加了「关于」→ 发 `WM_SYSCOMMAND(0x1000)` 真的弹出关于窗口 → 关掉后主窗口仍存活 |
-| `portability-test.ps1` | 把 node + dsh 树拷到临时目录，用剥离的 PATH 启动，验证这套组合可以脱离全局 npm 安装自举 |
+
+## 从源码构建
+
+```powershell
+dotnet build -c Release
+.\bin\Release\net10.0-windows\DshDesktop.exe
+
+# 发布单文件 exe
+dotnet publish -c Release -r win-x64 --self-contained false `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:DebugType=none -p:AllowedReferenceRelatedFileExtensions=none -o publish
+```
+
+加 `--self-contained true` 可得免装 .NET 运行时的版本（体积约 103 MB）。
 
 ## 许可证
 
@@ -147,29 +161,7 @@ WebView2 运行时版本、许可证、可点击的项目主页链接，以及�
 MIT 许可并不涵盖商标授权。自用无妨，若要用于商业场景或长期公开分发，建议换成自己的图标——
 替换 `tools\icon-source.svg` 后重跑 `tools\make-icon.ps1` 即可。
 
-## 已知限制
+---
 
-- 需要 **WebView2 运行时**（Win11 自带；缺失时窗口会提示安装），以及 **.NET 10 桌面运行时**
-  （本机由 SDK 10.0.401 提供）。想分发到没装 .NET 的机器，把发布命令改成 `--self-contained true`，
-  实测体积 **103 MB**（WinForms 不允许剪裁，所以省不掉）。
-- 单实例：重复启动只会弹提示，不会开第二个窗口。
-- 图标由 `tools\make-icon.ps1` 从 `tools\icon-source.svg`（DeepSeek 官方 logo）生成多尺寸 `app.ico`：
-  logo 路径含椭圆弧，GDI+ 无法忠实表达，所以脚本改用**无头 Edge 逐尺寸原生栅格化**，
-  再打包成 7 个尺寸（16/24/32/48/64/128/256）的 ico，并自带空白渲染自检。
-  想要白色圆角底板版本：`pwsh tools\make-icon.ps1 -Plate white`（另有 `-Plate dark`）。
-  脚本按尺寸用**绝对像素定位**而非 CSS 百分比 + flex —— 后者在 128/256 px 下让无头 Edge
-  把图形排到画布外，会产出空白图标条目。
-
-### 关于 NativeAOT 和「把 dsh 一起打包」的实测结论
-
-两条都试过，结论记录在这里免得重复踩：
-
-- **NativeAOT 走不通**：SDK 直接报 `error NETSDK1175: 启用剪裁时，不支持或不推荐使用 Windows 窗体`。
-  AOT 必然启用剪裁，而 WinForms/WPF 不在支持范围内（WebView2 托管封装同样依赖 WinForms 宿主）。
-  要 AOT 就得把界面重写成裸 Win32 窗口 + WebView2 COM 互操作，等于另做一个程序。
-- **完整内嵌 dsh 的体积代价**：实测 `node.exe` 89 MB + `@deepseek-ai/dsh` 依赖树 194 MB ≈ **283 MB**；
-  叠加自包含 .NET 运行时约 390 MB（压缩进 exe 后仍约 250 MB），首次启动还要解压。
-  另外 `~/.dsh/profiles/node_modules` 是 **529 个 Junction**，指向全局 npm 树（其中一个还指向
-  `npm-cache\_npx\...`），**不能靠拷贝搬迁**，必须重建链接或解除引用复制。
-  需求只是"在干净电脑上能用"时，做启动检测 + 明确指引（本节内容）比背 300 MB 划算得多。
-
+设计取舍与被否决方案的实测数据（NativeAOT、整体打包、图标生成的坑）见
+[docs/engineering-notes.md](docs/engineering-notes.md)。

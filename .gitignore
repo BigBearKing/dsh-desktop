@@ -1,0 +1,13 @@
+# 构建产物
+bin/
+obj/
+publish/
+
+# IDE / 本机设置
+.vs/
+*.user
+*.suo
+
+# 测试运行留下的日志
+tools/gate-test.log
+*.log
